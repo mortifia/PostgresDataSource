@@ -1,0 +1,24 @@
+{
+  "name": "postgresdatasource",
+  "version": "1.0.0",
+  "description": "for apollo-server, combine https://github.com/porsager/postgres with logical of https://github.com/cvburgess/SQLDataSource",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mortifia/PostgresDataSource.git"
+  },
+  "author": "Guillaume casal",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mortifia/PostgresDataSource/issues"
+  },
+  "homepage": "https://github.com/mortifia/PostgresDataSource#readme",
+  "dependencies": {
+    "apollo-datasource": "^0.7.2",
+    "apollo-server-caching": "^0.5.2",
+    "postgres": "^1.0.2"
+  }
+}
