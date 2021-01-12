@@ -3,7 +3,7 @@ const { InMemoryLRUCache } = require("apollo-server-caching");
 const postgres = require('postgres');
 
 class PostgresDataSource extends DataSource {
-    constructor(postgresConfig) {
+    constructor(postgresUrl = null, postgresConfig = null) {
         super();
 
         this.context;
@@ -13,7 +13,7 @@ class PostgresDataSource extends DataSource {
             this.db = postgresConfig;
         }
         else {
-            this.db = postgres(postgresConfig);
+            this.db = postgres(postgresUrl, postgresConfig);
         }
 
         this.postgres = this.db;
