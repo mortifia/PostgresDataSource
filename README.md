@@ -1,4 +1,4 @@
-# PostgresDataSource
+# Postgres-Data-Source
 
 for apollo-server, combine [Postgres.js](https://github.com/porsager/postgres) with logical of [SQLDataSource](https://github.com/cvburgess/SQLDataSource)
 
