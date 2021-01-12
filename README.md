@@ -7,7 +7,7 @@ for apollo-server, combine [Postgres.js](https://github.com/porsager/postgres) w
 
 ### Installation
 
-To install: `npm i postgresdatasource`
+To install: `npm i postgres-data-source`
 
 ### Usage
 
