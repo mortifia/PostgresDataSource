@@ -14,7 +14,7 @@ To install: `npm i postgres-data-source`
 ```js
 // postgresDB.js
 
-const { PostgresDataSource } = require('postgresdatasource')
+const { PostgresDataSource } = require('postgres-data-source')
 
 class PostgresDB extends SQLDataSource {
   getUsers() {
