@@ -142,7 +142,7 @@ function Postgres(a, b) {
             ? 'rollback'
             : 'rollback to ' + savepoint
         )
-        .then(() => reject(err))
+        .then(() => reject(err), reject)
       })
       .then(begin && (() => {
         connections.push(connection)
@@ -175,7 +175,7 @@ function Postgres(a, b) {
       query.resolve = resolve
       query.reject = reject
       ended !== null
-        ? reject(errors.connection('CONNECTION_ENDED', options))
+        ? reject(errors.connection('CONNECTION_ENDED', options, options))
         : ready
           ? send(connection, query, xs, args)
           : fetchArrayTypes(connection).then(() => send(connection, query, xs, args)).catch(reject)
@@ -337,31 +337,57 @@ function Postgres(a, b) {
   }
 
   function listen(channel, fn) {
+    const listener = getListener()
+
     if (channel in listeners) {
       listeners[channel].push(fn)
-      return Promise.resolve(channel)
+      return Promise.resolve(Object.create(listener.result, {
+        unlisten: { value: unlisten }
+      }))
     }
 
     listeners[channel] = [fn]
-    return query({ raw: true }, getListener(), 'listen ' + escape(channel))
+
+    return query({ raw: true }, listener.conn, 'listen ' + escape(channel))
+      .then((result) => {
+        Object.assign(listener.result, result)
+        return Object.create(listener.result, {
+          unlisten: { value: unlisten }
+        })
+      })
+
+    function unlisten() {
+      if (!listeners[channel])
+        return Promise.resolve()
+
+      listeners[channel] = listeners[channel].filter(handler => handler !== fn)
+
+      if (listeners[channel].length)
+        return Promise.resolve()
+
+      delete listeners[channel]
+      return query({ raw: true }, getListener().conn, 'unlisten ' + escape(channel)).then(() => undefined)
+    }
   }
 
   function getListener() {
     if (listener)
       return listener
 
-    listener = Connection(Object.assign({
+    const conn = Connection(Object.assign({
       onnotify: (c, x) => c in listeners && listeners[c].forEach(fn => fn(x)),
       onclose: () => {
         Object.entries(listeners).forEach(([channel, fns]) => {
           delete listeners[channel]
           Promise.all(fns.map(fn => listen(channel, fn).catch(() => { /* noop */ })))
         })
+        listener = null
       }
     },
       options
     ))
-    all.push(listener)
+    listener = { conn, result: {} }
+    all.push(conn)
     return listener
   }
 
@@ -513,22 +539,23 @@ function Postgres(a, b) {
 
 function parseOptions(a, b) {
   const env = process.env // eslint-disable-line
-      , url = typeof a === 'string' ? Url.parse(a, true) : { query: {}, pathname: '' }
       , o = (typeof a === 'string' ? b : a) || {}
+      , { url, multihost } = parseUrl(a, env)
       , auth = (url.auth || '').split(':')
-      , host = o.hostname || o.host || url.hostname || env.PGHOST || 'localhost'
+      , host = o.hostname || o.host || multihost || url.hostname || env.PGHOST || 'localhost'
       , port = o.port || url.port || env.PGPORT || 5432
+      , user = o.user || o.username || auth[0] || env.PGUSERNAME || env.PGUSER || osUsername()
 
   return Object.assign({
-    host,
-    port,
+    host            : host.split(',').map(x => x.split(':')[0]),
+    port            : host.split(',').map(x => x.split(':')[1] || port),
     path            : o.path || host.indexOf('/') > -1 && host + '/.s.PGSQL.' + port,
-    database        : o.database || o.db || (url.pathname || '').slice(1) || env.PGDATABASE || 'postgres',
-    user            : o.user || o.username || auth[0] || env.PGUSERNAME || env.PGUSER || osUsername(),
+    database        : o.database || o.db || (url.pathname || '').slice(1) || env.PGDATABASE || user,
+    user            : user,
     pass            : o.pass || o.password || auth[1] || env.PGPASSWORD || '',
     max             : o.max || url.query.max || 10,
     types           : o.types || {},
-    ssl             : o.ssl || url.ssl || false,
+    ssl             : o.ssl || url.query.sslmode || url.query.ssl || false,
     idle_timeout    : o.idle_timeout || url.query.idle_timeout || env.PGIDLE_TIMEOUT || warn(o.timeout),
     connect_timeout : o.connect_timeout || url.query.connect_timeout || env.PGCONNECT_TIMEOUT || 30,
     no_prepare      : o.no_prepare,
@@ -536,10 +563,26 @@ function parseOptions(a, b) {
     onparameter     : o.onparameter,
     transform       : Object.assign({}, o.transform),
     connection      : Object.assign({ application_name: 'postgres.js' }, o.connection),
+    target_session_attrs: o.target_session_attrs || url.query.target_session_attrs || env.PGTARGETSESSIONATTRS,
     debug           : o.debug
   },
     mergeUserTypes(o.types)
   )
+}
+
+function parseUrl(url) {
+  if (typeof url !== 'string')
+    return { url: { query: {} } }
+
+  let host = url
+  host = host.slice(host.indexOf('://') + 3)
+  host = host.split(/[?/]/)[0]
+  host = host.slice(host.indexOf('@') + 1)
+
+  return {
+    url: Url.parse(url.replace(host, host.split(',')[0]), true),
+    multihost: host.indexOf(',') > -1 && host
+  }
 }
 
 function warn(x) {
