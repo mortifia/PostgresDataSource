@@ -1,7 +1,7 @@
 const { DataSource } = require("apollo-datasource");
 const { InMemoryLRUCache } = require("apollo-server-caching");
-//const postgres = require('postgres');
-const postgres = require('./postgres-patch/lib/index');
+const postgres = require('postgres');
+//const postgres = require('./postgres-patch/lib/index');
 
 class PostgresDataSource extends DataSource {
     constructor(postgresUrl = null, postgresConfig = null) {
